@@ -28,4 +28,7 @@ struct FWeaponData
 	// This feeds directly into LeapSlam duration formula
 	UPROPERTY(EditDefaultsOnly)
 	float WeaponAttackSpeed = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	float LocalAttackSpeedModifier = 0.f;
 };

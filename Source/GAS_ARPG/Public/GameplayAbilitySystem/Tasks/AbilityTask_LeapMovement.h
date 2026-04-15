@@ -20,7 +20,6 @@ class GAS_ARPG_API UAbilityTask_LeapMovement : public UAbilityTask
 	GENERATED_BODY()
 
 public:
-	
 	UPROPERTY(BlueprintAssignable)
 	FOnLeapCompleted OnLeapCompleted;
 
@@ -29,24 +28,24 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ability|Tasks",
 		meta = (HidePin = "OwningAbility", DefaultToSelf = "OwningAbility"))
-	static UAbilityTask_LeapMovement* CreateLeapMovementTask(
-		UGameplayAbility* OwningAbility,
-		FVector InTargetLocation,
-		float InLeapDuration,
-		float InArcHeight
-	);
+	static UAbilityTask_LeapMovement* CreateLeapMovementTask(UGameplayAbility* OwningAbility, FVector InTargetLocation,
+	                                                         float InLeapDuration, float InArcHeight = 0.2f);
 
 	virtual void Activate() override;
 	virtual void TickTask(float DeltaTime) override;
 	virtual void OnDestroy(bool bInOwnerFinished) override;
 
 private:
+	bool EnsureCharacter();
+
 	TWeakObjectPtr<ACharacter> OwnerCharacter;
 
 	FVector StartLocation;
 	FVector TargetLocation;
-	
-	float ArcHeight;
+
+	float ArcHeightRatio;
 	float TotalLeapDuration;
 	float ElapsedTime;
+	float ArcHeight; 
+
 };

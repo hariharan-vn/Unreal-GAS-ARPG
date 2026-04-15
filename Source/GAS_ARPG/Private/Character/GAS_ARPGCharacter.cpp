@@ -11,6 +11,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Materials/Material.h"
 #include "Engine/World.h"
+#include "GAS_ARPG/GAS_ARPG.h"
 #include "Items/Weapon/WeaponPickup.h"
 #include "Items/Weapon/WeaponPickupPayload.h"
 #include "Player/RPGPlayerState.h"
@@ -43,6 +44,8 @@ void AGAS_ARPGCharacter::PossessedBy(AController* NewController)
 	{
 		OwningPlayerState->PushASCToPawn();
 	}
+
+	GrantDefaultWeapons();
 }
 
 void AGAS_ARPGCharacter::OnRep_PlayerState()
@@ -67,29 +70,25 @@ void AGAS_ARPGCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EIC) return;
 
-	if (IA_Move)
+	if (MoveAction)
 	{
-		EIC->BindAction(IA_Move, ETriggerEvent::Triggered, this, &AGAS_ARPGCharacter::Input_Move);
+		EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGAS_ARPGCharacter::Input_Move);
 	}
 
-	if (IA_Look)
+	if (AttackAction)
 	{
-		EIC->BindAction(IA_Look, ETriggerEvent::Triggered, this, &AGAS_ARPGCharacter::Input_Look);
+		EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_Attack);
 	}
 
-	if (IA_LeapSlam)
+	for (int32 Index = 0; Index < AbilitySlots.Num(); ++Index)
 	{
-		EIC->BindAction(IA_LeapSlam, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_LeapSlam);
+		EIC->BindAction(AbilitySlots[Index].InputAction, ETriggerEvent::Triggered, this,
+		                &AGAS_ARPGCharacter::Input_SelectWeapon, Index);
 	}
 
-	if (IA_BasicAttack)
+	if (InteractAction)
 	{
-		EIC->BindAction(IA_BasicAttack, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_BasicAttack);
-	}
-
-	if (IA_Interact)
-	{
-		EIC->BindAction(IA_Interact, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_Interact);
+		EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_Interact);
 	}
 }
 
@@ -119,25 +118,31 @@ void AGAS_ARPGCharacter::Input_Move(const FInputActionValue& Value)
 	AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y), Axis.X);
 }
 
-void AGAS_ARPGCharacter::Input_Look(const FInputActionValue& Value)
+bool AGAS_ARPGCharacter::CanSwitchAbility() const
 {
-	const FVector2D Axis = Value.Get<FVector2D>();
-	AddControllerYawInput(Axis.X);
-	AddControllerPitchInput(Axis.Y);
+	if (const UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		return !ASC->HasMatchingGameplayTag(AttackingTag);
+	}
+	return false;
 }
 
-void AGAS_ARPGCharacter::Input_LeapSlam(const FInputActionValue& Value)
+void AGAS_ARPGCharacter::Input_SelectWeapon(const FInputActionValue& Value, const int32 SelectedIndex)
+{
+	if (!CanSwitchAbility()) return;
+	if (!AbilitySlots.IsValidIndex(SelectedIndex)) return;
+	if (CurrentActiveAbilityTag.MatchesTagExact(AbilitySlots[SelectedIndex].AbilityTag))return;
+
+	const FAbilitySlotConfig& Slot = AbilitySlots[SelectedIndex];
+	CurrentActiveAbilityTag = Slot.AbilityTag;
+	GetMesh()->SetAnimInstanceClass(Slot.AnimBPClass);
+}
+
+void AGAS_ARPGCharacter::Input_Attack(const FInputActionValue& Value)
 {
 	if (!GetAbilitySystemComponent()) return;
 
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, LeapSlamTag, FGameplayEventData());
-}
-
-void AGAS_ARPGCharacter::Input_BasicAttack(const FInputActionValue& Value)
-{
-	if (!GetAbilitySystemComponent()) return;
-
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, BasicAttackTag, FGameplayEventData());
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, AttackingTag, FGameplayEventData());
 }
 
 void AGAS_ARPGCharacter::Input_Interact(const FInputActionValue& Value)
@@ -153,11 +158,30 @@ void AGAS_ARPGCharacter::Input_Interact(const FInputActionValue& Value)
 	FGameplayEventData EventData;
 	EventData.OptionalObject = Payload;
 
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, WeaponPickupTag, EventData);
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, EquipWeaponEventTag, EventData);
 
 	// Clear reference — weapon is being picked up
 	NearbyWeapon->Destroy();
 	NearbyWeapon = nullptr;
+}
+
+void AGAS_ARPGCharacter::GrantDefaultWeapons()
+{
+	if (DefaultWeapons.IsEmpty())
+	{
+		UE_LOG(ARPG_Ability, Warning, TEXT("[%hs] No default weapons configured"), __FUNCTION__);
+		return;
+	}
+
+	for (const FWeaponData& WeaponData : DefaultWeapons)
+	{
+		UWeaponPickupPayload* Payload = UWeaponPickupPayload::Create(this, WeaponData);
+
+		FGameplayEventData EventData;
+		EventData.OptionalObject = Payload;
+
+		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, EquipWeaponEventTag, FGameplayEventData());
+	}
 }
 
 void AGAS_ARPGCharacter::Tick(float DeltaSeconds)

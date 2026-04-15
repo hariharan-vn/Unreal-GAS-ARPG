@@ -22,7 +22,7 @@ public:
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	                                const FGameplayTagContainer* SourceTags = nullptr,
 	                                const FGameplayTagContainer* TargetTags = nullptr,
-	                                OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const;
+	                                OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -33,27 +33,43 @@ protected:
 	                        const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility,
 	                        bool bWasCancelled) override;
 
-	// Called when movement task completes
+private:
 	UFUNCTION()
 	void OnLeapCompleted();
 
 	UFUNCTION()
 	void OnLeapFailed();
 
-private:
+	UFUNCTION()
+	void OnLiftoffNotify(FGameplayEventData Payload);
+
+	UFUNCTION()
+	void OnMontageCompleted();
+
 	float CalculateLeapDuration() const;
 	bool ConsumeInstantStartup();
 
-	void ApplyLandingEffects(const FVector& LandingLocation);
+	void ApplyLandingDamage(const FVector& LandingLocation);
 	bool IsTargetAtFullLife(const AActor* Target) const;
 
 	float GetDistanceFalloff(const FVector& LandingLocation, const FVector& TargetLocation) const;
+
+	FVector GetGroundedTargetLocation(const ACharacter* Avatar) const;
 
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Effects")
 	TSubclassOf<UGameplayEffect> GE_Damage;
 
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Effects")
 	TSubclassOf<UGameplayEffect> GE_Stun;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Effects")
+	TObjectPtr<UAnimMontage> LeapSlamMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Effects", meta = (Categories = "Event"))
+	FGameplayTag LiftoffEventTag;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Effects", meta = (Categories = "GameplayCue"))
+	FGameplayTag LandingCueTag;
 
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Effects")
 	FGameplayTag DamageAmountTag;
@@ -70,8 +86,8 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Knockback")
 	float KnockbackUpwardForce = 400.f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement")
-	float ArcHeight = 300.f;
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ArcHeightRatio = 0.2f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement")
 	float LandingRadius = 200.f; //Can increase the radius when buff
@@ -82,8 +98,12 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float DamageMinimum = 0.4f;
 
+	FVector CachedTargetLocation;
+
+	float CachedDuration;
+
 	UPROPERTY()
 	TObjectPtr<UAbilityTask_LeapMovement> ActiveLeapTask;
 
-	float LastLeapTimestamp = -9999.f;
+	bool bLandingCompleted = false;
 };
