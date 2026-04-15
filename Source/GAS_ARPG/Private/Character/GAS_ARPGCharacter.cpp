@@ -12,6 +12,7 @@
 #include "Materials/Material.h"
 #include "Engine/World.h"
 #include "GAS_ARPG/GAS_ARPG.h"
+#include "Items/Weapon/WeaponActor.h"
 #include "Items/Weapon/WeaponPickup.h"
 #include "Items/Weapon/WeaponPickupPayload.h"
 #include "Player/RPGPlayerState.h"
@@ -44,8 +45,6 @@ void AGAS_ARPGCharacter::PossessedBy(AController* NewController)
 	{
 		OwningPlayerState->PushASCToPawn();
 	}
-
-	GrantDefaultWeapons();
 }
 
 void AGAS_ARPGCharacter::OnRep_PlayerState()
@@ -75,20 +74,14 @@ void AGAS_ARPGCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AGAS_ARPGCharacter::Input_Move);
 	}
 
+	if (EquipAction)
+	{
+		EIC->BindAction(EquipAction, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_Equip);
+	}
+
 	if (AttackAction)
 	{
 		EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_Attack);
-	}
-
-	for (int32 Index = 0; Index < AbilitySlots.Num(); ++Index)
-	{
-		EIC->BindAction(AbilitySlots[Index].InputAction, ETriggerEvent::Triggered, this,
-		                &AGAS_ARPGCharacter::Input_SelectWeapon, Index);
-	}
-
-	if (InteractAction)
-	{
-		EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AGAS_ARPGCharacter::Input_Interact);
 	}
 }
 
@@ -107,8 +100,27 @@ AWeaponPickup* AGAS_ARPGCharacter::GetNearbyWeapon() const
 	return NearbyWeapon.IsValid() ? NearbyWeapon.Get() : nullptr;
 }
 
+void AGAS_ARPGCharacter::InitializePawnASC(AActor* ASCOwner)
+{
+	Super::InitializePawnASC(ASCOwner);
+
+	if (CachedAbilitySystemComponent.IsValid())
+	{
+		CachedAbilitySystemComponent->GenericGameplayEventCallbacks.FindOrAdd(WeaponEquipEventTag).AddUObject(
+			this, &AGAS_ARPGCharacter::OnWeaponEquipped);
+	}
+}
+
 void AGAS_ARPGCharacter::Input_Move(const FInputActionValue& Value)
 {
+	if (const UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		if (ASC->HasMatchingGameplayTag(AttackingTag))
+		{
+			return;
+		}
+	}
+
 	const FVector2D Axis = Value.Get<FVector2D>();
 	const FRotator Yaw(0.f, GetControlRotation().Yaw, 0.f);
 
@@ -122,35 +134,41 @@ bool AGAS_ARPGCharacter::CanSwitchAbility() const
 {
 	if (const UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
 	{
+		FGameplayTagContainer GameplayTags;
+		ASC->GetOwnedGameplayTags(GameplayTags);
+		for (auto Tag : GameplayTags)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("CanSwitch %s"), *Tag.ToString());
+		}
+		UE_LOG(LogTemp, Warning, TEXT("================== %d"), GameplayTags.Num());
+
 		return !ASC->HasMatchingGameplayTag(AttackingTag);
 	}
 	return false;
 }
 
-void AGAS_ARPGCharacter::Input_SelectWeapon(const FInputActionValue& Value, const int32 SelectedIndex)
+void AGAS_ARPGCharacter::Input_SwapWeapon(const FInputActionValue& Value)
 {
-	if (!CanSwitchAbility()) return;
-	if (!AbilitySlots.IsValidIndex(SelectedIndex)) return;
-	if (CurrentActiveAbilityTag.MatchesTagExact(AbilitySlots[SelectedIndex].AbilityTag))return;
-
-	const FAbilitySlotConfig& Slot = AbilitySlots[SelectedIndex];
-	CurrentActiveAbilityTag = Slot.AbilityTag;
-	GetMesh()->SetAnimInstanceClass(Slot.AnimBPClass);
 }
 
 void AGAS_ARPGCharacter::Input_Attack(const FInputActionValue& Value)
 {
+	if (!WeaponAbilityTag.IsValid())
+	{
+		return;
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Input_Attack"));
+
 	if (!GetAbilitySystemComponent()) return;
 
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, AttackingTag, FGameplayEventData());
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, WeaponAbilityTag, FGameplayEventData());
 }
 
-void AGAS_ARPGCharacter::Input_Interact(const FInputActionValue& Value)
+void AGAS_ARPGCharacter::Input_Equip(const FInputActionValue& Value)
 {
 	if (!NearbyWeapon.IsValid()) return;
 
-	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
-	if (!ASC) return;
+	if (!GetAbilitySystemComponent()) return;
 
 	UWeaponPickupPayload* Payload = UWeaponPickupPayload::Create(this, NearbyWeapon->GetWeaponData());
 
@@ -158,29 +176,19 @@ void AGAS_ARPGCharacter::Input_Interact(const FInputActionValue& Value)
 	FGameplayEventData EventData;
 	EventData.OptionalObject = Payload;
 
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, EquipWeaponEventTag, EventData);
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, PickupEventTag, EventData);
 
 	// Clear reference — weapon is being picked up
 	NearbyWeapon->Destroy();
 	NearbyWeapon = nullptr;
 }
 
-void AGAS_ARPGCharacter::GrantDefaultWeapons()
+void AGAS_ARPGCharacter::OnWeaponEquipped(const FGameplayEventData* GameplayEventData)
 {
-	if (DefaultWeapons.IsEmpty())
+	if (const auto EquippedWeapon = Cast<AWeaponActor>(GameplayEventData->OptionalObject))
 	{
-		UE_LOG(ARPG_Ability, Warning, TEXT("[%hs] No default weapons configured"), __FUNCTION__);
-		return;
-	}
-
-	for (const FWeaponData& WeaponData : DefaultWeapons)
-	{
-		UWeaponPickupPayload* Payload = UWeaponPickupPayload::Create(this, WeaponData);
-
-		FGameplayEventData EventData;
-		EventData.OptionalObject = Payload;
-
-		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(this, EquipWeaponEventTag, FGameplayEventData());
+		WeaponAbilityTag = EquippedWeapon->GetWeaponAbilityTag();
+		GetMesh()->SetAnimInstanceClass(EquippedWeapon->GetAnimBPClass());
 	}
 }
 

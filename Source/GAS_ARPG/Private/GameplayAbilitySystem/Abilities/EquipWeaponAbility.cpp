@@ -3,6 +3,7 @@
 
 #include "GameplayAbilitySystem/Abilities/EquipWeaponAbility.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystemComponent.h"
 #include "GameFramework/Character.h"
@@ -30,7 +31,7 @@ void UEquipWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 
 	if (!TriggerEventData)
 	{
-		UE_LOG(ARPG_Ability, Warning, TEXT("[EquipWeapon] No TriggerEventData"));
+		UE_LOG(ARPG_Ability, Warning, TEXT("[%hs] No Payload available"), __FUNCTION__);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
@@ -40,13 +41,17 @@ void UEquipWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 	if (!Payload)
 	{
 		UE_LOG(ARPG_Ability, Warning,
-		       TEXT("[EquipWeapon] OptionalObject is not UWeaponPickupPayload"));
+		       TEXT("[%hs] OptionalObject is not UWeaponPickupPayload"), __FUNCTION__);
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
 	// Copy data before destroying pickup
 	PendingWeaponData = Payload->GetWeaponData();
+
+	RemovePreviousWeaponGE();
+	RemovePreviousWeaponActor();
+	SpawnAndAttachWeaponActor();
 
 	// ── Play montage or apply immediately ─────
 	if (EquipMontage)
@@ -65,10 +70,7 @@ void UEquipWeaponAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handl
 
 void UEquipWeaponAbility::OnEquipMontageCompleted()
 {
-	RemovePreviousWeaponGE();
-	RemovePreviousWeaponActor();
 	ApplyWeaponGE();
-	SpawnAndAttachWeaponActor();
 
 	EndAbility(CurrentSpecHandle, GetCurrentActorInfo(), CurrentActivationInfo, true, false);
 }
@@ -105,8 +107,7 @@ void UEquipWeaponAbility::ApplyWeaponGE()
 
 	// ── Value via SetByCaller ─────────────────
 	// GE_WeaponStats reads this tag to set WeaponAttackSpeed
-	Spec.Data->SetSetByCallerMagnitude(FGameplayTag::RequestGameplayTag("Data.WeaponAttackSpeed"),
-	                                   PendingWeaponData.WeaponAttackSpeed);
+	Spec.Data->SetSetByCallerMagnitude(WeaponAttackSpeedDataTag, PendingWeaponData.WeaponAttackSpeed);
 
 	// ── Identity tag via DynamicGrantedTags ───
 	// Grants "Weapon.Type.Sword" etc while GE is active
@@ -137,6 +138,11 @@ void UEquipWeaponAbility::SpawnAndAttachWeaponActor()
 		SpawnedWeaponActor->AttachToComponent(Avatar->GetMesh(),
 		                                      FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 		                                      PendingWeaponData.SocketName);
+		FGameplayEventData EventData;
+		EventData.OptionalObject = SpawnedWeaponActor;
+
+		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(GetAvatarActorFromActorInfo(), WeaponSpawnedTag,
+		                                                         EventData);
 	}
 }
 

@@ -40,7 +40,7 @@ private:
 	void RemovePreviousWeaponGE();
 	void SpawnAndAttachWeaponActor();
 	void RemovePreviousWeaponActor();
-	
+
 	// ── Single GE for all weapons ─────────────
 	// Value driven by SetByCaller — not per weapon
 	UPROPERTY(EditDefaultsOnly, Category = "Equip")
@@ -54,6 +54,12 @@ private:
 	FActiveGameplayEffectHandle ActiveWeaponGEHandle;
 	FWeaponData PendingWeaponData;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Equip")
+	FGameplayTag WeaponAttackSpeedDataTag;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Equip")
+	FGameplayTag WeaponSpawnedTag;
+	
 	UPROPERTY()
 	TObjectPtr<AWeaponActor> SpawnedWeaponActor;
 

@@ -61,3 +61,8 @@ bool AWeaponActor::HasSocket(const FName& SocketName) const
 {
 	return WeaponMesh && WeaponMesh->DoesSocketExist(SocketName);
 }
+
+const FGameplayTag& AWeaponActor::GetWeaponAbilityTag() const
+{
+	return WeaponAbilityTag;
+}

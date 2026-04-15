@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameplayAbilitySystem/Payloads/EquipPayload.h"
 #include "WeaponActor.generated.h"
 
 class UNiagaraComponent;
@@ -14,7 +15,7 @@ UCLASS()
 class GAS_ARPG_API AWeaponActor : public AActor
 {
 	GENERATED_BODY()
-	
+
 public:
 	AWeaponActor();
 
@@ -23,14 +24,17 @@ public:
 
 	// Optional hit spark at impact point
 	void PlayHitEffect(const FVector& HitLocation) const;
-	
+
 	void StopSwingEffect() const;
 
 	FVector GetSocketLocation(const FName& SocketName) const;
 
 	bool HasSocket(const FName& SocketName) const;
-	
-	
+
+	const FGameplayTag& GetWeaponAbilityTag() const;
+
+	TSubclassOf<UAnimInstance> GetAnimBPClass() const { return AnimBPClass; }
+
 private:
 	// The weapon mesh
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -43,4 +47,10 @@ private:
 	// Configured in editor per weapon type
 	UPROPERTY(EditDefaultsOnly, Category = "Effects")
 	TObjectPtr<UNiagaraSystem> HitVFX;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	TSubclassOf<UAnimInstance> AnimBPClass;
+
+	UPROPERTY(EditDefaultsOnly)
+	FGameplayTag WeaponAbilityTag;
 };

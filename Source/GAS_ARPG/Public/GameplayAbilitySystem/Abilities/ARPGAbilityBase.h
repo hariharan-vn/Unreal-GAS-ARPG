@@ -17,27 +17,4 @@ class GAS_ARPG_API UARPGAbilityBase : public UGameplayAbility
 public:
 	UARPGAbilityBase();
 
-	virtual void PostInitProperties() override;
-
-protected:
-	// ── Called in each child constructor ──────
-	// Reads configured tags and applies them
-	void InitializeAbility();
-
-	// ── Configured in Blueprint per ability ───
-
-	// What this ability IS
-	UPROPERTY(EditDefaultsOnly, Category = "Ability|Tags")
-	FGameplayTag AbilityIdentityTag;
-
-	// What event activates this ability
-	UPROPERTY(EditDefaultsOnly, Category = "Ability|Tags")
-	FGameplayTag ActivationEventTag;
-
-	// Tags that block this ability
-	UPROPERTY(EditDefaultsOnly, Category = "Ability|Tags")
-	FGameplayTagContainer BlockedByTags;
-
-private:
-	bool bAbilityInitialized = false;
 };

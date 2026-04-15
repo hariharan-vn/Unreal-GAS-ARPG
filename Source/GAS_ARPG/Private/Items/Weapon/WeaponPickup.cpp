@@ -41,6 +41,9 @@ void AWeaponPickup::OnSphereBeginOverlap(UPrimitiveComponent* OverlappedComponen
                                          UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
                                          const FHitResult& SweepResult)
 {
+
+	UE_LOG(LogTemp, Log, TEXT("OnSphereBeginOverlap"));
+	
 	AGAS_ARPGCharacter* Player = Cast<AGAS_ARPGCharacter>(OtherActor);
 	if (!Player) return;
 

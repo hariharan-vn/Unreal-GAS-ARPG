@@ -37,7 +37,7 @@ private:
 
 	// Weapon this pickup represents
 	// Set per instance in editor via EditInstanceOnly
-	UPROPERTY(EditInstanceOnly, Category = "Weapon")
+	UPROPERTY(EditAnywhere, Category = "Weapon")
 	FWeaponData WeaponData;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")

@@ -1,12 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "GameplayAbilitySystem/GC_LeapSlam_Landing.h"
+#include "GameplayAbilitySystem/Cues//LeapSlamLandingCue.h"
 
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
-bool UGC_LeapSlam_Landing::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
+bool ULeapSlamLandingCue::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	const FVector Location = Parameters.Location;
 

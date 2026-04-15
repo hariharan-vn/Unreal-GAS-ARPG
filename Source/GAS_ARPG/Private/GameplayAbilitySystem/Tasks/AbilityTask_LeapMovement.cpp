@@ -3,6 +3,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "DrawDebugHelpers.h"
 
 UAbilityTask_LeapMovement* UAbilityTask_LeapMovement::CreateLeapMovementTask(
 	UGameplayAbility* OwningAbility, const FVector InTargetLocation, const float InLeapDuration,
@@ -28,13 +29,24 @@ void UAbilityTask_LeapMovement::Activate()
 	}
 
 	StartLocation = OwnerCharacter->GetActorLocation();
-	const float Distance = FVector::Dist2D(StartLocation, TargetLocation);
+	const FVector TargetDirection = TargetLocation - StartLocation;
+	const float Distance = (TargetDirection).Length();
 	ArcHeight = Distance * ArcHeightRatio;
+
+	if (!TargetDirection.IsNearlyZero())
+	{
+		OwnerCharacter->SetActorRotation(TargetDirection.GetSafeNormal2D().Rotation());
+	}
+
+	DrawDebugSphere(GetWorld(), StartLocation, 30, 10, FColor::Red, true);
+	DrawDebugSphere(GetWorld(), TargetLocation, 30, 10, FColor::Blue, true);
 
 	OwnerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 	OwnerCharacter->GetCharacterMovement()->StopMovementImmediately();
 
 	OwnerCharacter->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	CapsuleHalfHeight = OwnerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 
 	ElapsedTime = 0.f;
 	// Must set this to receive TickTask() calls
@@ -56,19 +68,13 @@ void UAbilityTask_LeapMovement::TickTask(float DeltaTime)
 
 	// Lerp XY + parabolic Z arc
 	FVector NewLocation = FMath::Lerp(StartLocation, TargetLocation, Alpha);
-
 	NewLocation.Z += ArcHeight * FMath::Sin(Alpha * PI);
+
+	NewLocation.Z += CapsuleHalfHeight;
 
 	OwnerCharacter->SetActorLocation(NewLocation, false);
 
-	// Blocked mid-air (hit a wall etc.)
-	//Currently turning off collision in air
-	/*if (Hit.bBlockingHit && Alpha < 1.f)
-	{
-		OnLeapFailed.Broadcast();
-		EndTask();
-		return;
-	}*/
+	OwnerCharacter->SetActorLocation(NewLocation, false);
 
 	if (Alpha >= 1.f)
 	{

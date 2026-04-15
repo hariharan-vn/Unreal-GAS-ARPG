@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayCueNotify_Static.h"
-#include "GC_LeapSlam_Landing.generated.h"
+#include "LeapSlamLandingCue.generated.h"
 
 class UNiagaraSystem;
 class USoundBase;
@@ -12,7 +12,7 @@ class UCameraShakeBase;
 
 
 UCLASS()
-class GAS_ARPG_API UGC_LeapSlam_Landing : public UGameplayCueNotify_Static
+class GAS_ARPG_API ULeapSlamLandingCue : public UGameplayCueNotify_Static
 {
 	GENERATED_BODY()
 

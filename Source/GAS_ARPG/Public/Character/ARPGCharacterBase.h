@@ -10,6 +10,7 @@ class UInputComponent;
 class UBasicAttributeSet;
 class UGameplayAbility;
 class UGameplayEffect;
+class AActor;
 
 UCLASS()
 class GAS_ARPG_API AARPGCharacterBase : public ACharacter, public IAbilitySystemInterface
@@ -22,7 +23,7 @@ public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override
 	PURE_VIRTUAL(ARPGCharacterBase::GetAbilitySystemComponent, return nullptr;);
 
-	void InitializePawnASC(AActor* ASCOwner);
+	virtual void InitializePawnASC(AActor* ASCOwner);
 
 protected:
 	void InitializeAttributes();

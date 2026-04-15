@@ -10,7 +10,9 @@
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "Components/CapsuleComponent.h"
 #include "Engine/OverlapResult.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayAbilitySystem/AttributeSets/BasicAttributeSet.h"
 
 ULeapSlamAbility::ULeapSlamAbility()
@@ -23,6 +25,13 @@ bool ULeapSlamAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handl
                                           const FGameplayTagContainer* TargetTags,
                                           FGameplayTagContainer* OptionalRelevantTags) const
 {
+	return Super::CanActivateAbility(Handle, ActorInfo,
+	                                 SourceTags, TargetTags,
+	                                 OptionalRelevantTags);
+
+
+	/*
+	----------Future Checks
 	if (!Super::CanActivateAbility(Handle, ActorInfo,
 	                               SourceTags, TargetTags,
 	                               OptionalRelevantTags))
@@ -33,6 +42,27 @@ bool ULeapSlamAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handl
 	if (!ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag("Weapon.Equipped")))
 	{
 		UE_LOG(ARPG_Ability, Warning, TEXT("[LeapSlam] No weapon equipped"));
+		return false;
+	}
+	*/
+}
+
+bool ULeapSlamAbility::CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+                                 FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CheckCost(Handle, ActorInfo, OptionalRelevantTags))
+		return false;
+
+	const UBasicAttributeSet* Attrs =
+		ActorInfo->AbilitySystemComponent->GetSet<UBasicAttributeSet>();
+	if (!Attrs) return false;
+
+	// Block if not enough mana
+	if (Attrs->GetMana() < ManaCost)
+	{
+		UE_LOG(ARPG_Ability, Verbose,
+		       TEXT("[%hs] Not enough mana — have %.1f need %.1f"),
+		       __FUNCTION__, Attrs->GetMana(), ManaCost);
 		return false;
 	}
 
@@ -54,7 +84,7 @@ void ULeapSlamAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		return;
 	}
 
-	const ACharacter* Avatar = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+	ACharacter* Avatar = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
 	if (!Avatar)
 	{
 		UE_LOG(ARPG_Ability, Warning, TEXT("[%hs] Unable to Get the Avatar"), __FUNCTION__);
@@ -64,7 +94,17 @@ void ULeapSlamAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 
 	bLandingCompleted = false;
 	CachedTargetLocation = GetGroundedTargetLocation(Avatar);
-	CachedDuration = CalculateLeapDuration();
+
+	// Base duration from formula
+	const float BaseDuration = CalculateLeapDuration();
+
+	// Scale duration by distance relative to max leap distance
+	const float Distance = FVector::Dist2D(Avatar->GetActorLocation(), CachedTargetLocation);
+	const float DistanceAlpha = FMath::Clamp(Distance / LeapDistance, 0.f, 1.f);
+
+	CachedDuration = FMath::Lerp(BaseDuration * MinDurationScale, BaseDuration, DistanceAlpha) / LeapSpeedMultiplier;
+
+	UE_LOG(LogTemp, Warning, TEXT("Jump Duration %f"), CachedDuration);
 
 	UAbilityTask_PlayMontageAndWait* MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 		this, NAME_None, LeapSlamMontage, 1.f, FName("Start"));
@@ -76,6 +116,10 @@ void ULeapSlamAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		this, LiftoffEventTag);
 	LiftoffTask->EventReceived.AddDynamic(this, &ULeapSlamAbility::OnLiftoffNotify);
 	LiftoffTask->ReadyForActivation();
+
+
+	Avatar->GetCharacterMovement()->bAllowPhysicsRotationDuringAnimRootMotion = false;
+	Avatar->SetAnimRootMotionTranslationScale(0.f);
 }
 
 void ULeapSlamAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -86,6 +130,13 @@ void ULeapSlamAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 	bLandingCompleted = false;
 	CachedTargetLocation = FVector::ZeroVector;
 	CachedDuration = 0.f;
+
+	ACharacter* Avatar = Cast<ACharacter>(ActorInfo->AvatarActor.Get());
+	{
+		Avatar->SetAnimRootMotionTranslationScale(1.f); // restore
+		Avatar->GetCharacterMovement()->bAllowPhysicsRotationDuringAnimRootMotion = true;
+	}
+
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
 
@@ -173,7 +224,7 @@ float ULeapSlamAbility::CalculateLeapDuration() const
 }
 
 
-void ULeapSlamAbility::ApplyLandingDamage(const FVector& LandingLocation)
+void ULeapSlamAbility::ApplyLandingDamage(const FVector& LandingLocation) const
 {
 	TArray<FOverlapResult> Overlaps;
 	FCollisionQueryParams Params;
@@ -193,11 +244,16 @@ void ULeapSlamAbility::ApplyLandingDamage(const FVector& LandingLocation)
 		AActor* Target = Overlap.GetActor();
 		if (!Target) continue;
 
+		UAbilitySystemComponent* TargetASC =
+			UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
+		if (!TargetASC) continue;
+
 		const float Falloff = GetDistanceFalloff(LandingLocation, Target->GetActorLocation());
-		const float ScaledDamage = FMath::Lerp(BaseDamageMagnitude * DamageMinimum, BaseDamageMagnitude, Falloff);
+		const float ScaledDamage = -FMath::Lerp(BaseDamageMagnitude * DamageMinimum, BaseDamageMagnitude, Falloff);
 
 		const FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(GE_Damage);
-		DamageSpec.Data->SetSetByCallerMagnitude(DamageAmountTag, ScaledDamage);
+
+		DamageSpec.Data->SetSetByCallerMagnitude(DamageAmountTag, -100.f); //
 
 		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, GetCurrentActorInfo(), CurrentActivationInfo, DamageSpec,
 		                                UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Target));
@@ -264,5 +320,11 @@ FVector ULeapSlamAbility::GetGroundedTargetLocation(const ACharacter* Avatar) co
 	const FVector TraceEnd = RawTarget - FVector(0.f, 0.f, 1000.f);
 	GetWorld()->LineTraceSingleByChannel(GroundHit, TraceStart, TraceEnd, ECC_WorldStatic);
 
-	return GroundHit.bBlockingHit ? GroundHit.Location : RawTarget;
+	if (GroundHit.bBlockingHit)
+	{
+		const float HalfHeight = Avatar->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		return GroundHit.Location + FVector(0.f, 0.f, HalfHeight);
+	}
+
+	return RawTarget;
 }

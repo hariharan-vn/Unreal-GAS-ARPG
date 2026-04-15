@@ -4,9 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "ARPGCharacterBase.h"
-#include "GameFramework/Character.h"
 #include "GAS_ARPGCharacter.generated.h"
 
+class AWeaponActor;
+struct FWeaponAbilityConfig;
 struct FWeaponData;
 struct FInputActionValue;
 class UCameraComponent;
@@ -15,21 +16,8 @@ class UAbilitySystemComponent;
 class UInputComponent;
 class UInputAction;
 class AWeaponPickup;
+class UGameplayAbility;
 
-USTRUCT(BlueprintType)
-struct FAbilitySlotConfig
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditDefaultsOnly)
-	TObjectPtr<UInputAction> InputAction;
-
-	UPROPERTY(EditDefaultsOnly)
-	FGameplayTag AbilityTag;
-
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<UAnimInstance> AnimBPClass;
-};
 
 UCLASS(Blueprintable)
 class AGAS_ARPGCharacter : public AARPGCharacterBase
@@ -65,18 +53,20 @@ public:
 
 	AWeaponPickup* GetNearbyWeapon() const;
 
+	virtual void InitializePawnASC(AActor* ASCOwner) override;
+
 private:
 	bool CanSwitchAbility() const;
-	
+
 	void Input_Move(const FInputActionValue& Value);
 
-	void Input_SelectWeapon(const FInputActionValue& Value, const int32 SelectedIndex);
+	void Input_SwapWeapon(const FInputActionValue& Value);
 
 	void Input_Attack(const FInputActionValue& Value);
 
-	void Input_Interact(const FInputActionValue& Value);
+	void Input_Equip(const FInputActionValue& Value);
 
-	void GrantDefaultWeapons();
+	void OnWeaponEquipped(const FGameplayEventData* GameplayEventData);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> TopDownCameraComponent;
@@ -84,28 +74,28 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpringArmComponent> CameraBoom;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Ability Slots")
-	TArray<FAbilitySlotConfig> AbilitySlots;
-
-	UPROPERTY(EditAnywhere, Category = "Weapons")
-	TArray<FWeaponData> DefaultWeapons;
-
 	TWeakObjectPtr<AWeaponPickup> NearbyWeapon;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<UInputAction> InteractAction;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> MoveAction;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> EquipAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Ability")
+	FGameplayTag WeaponAbilityTag;
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Ability")
 	FGameplayTag AttackingTag;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	FGameplayTag EquipWeaponEventTag;
+	FGameplayTag PickupEventTag;
 
-	FGameplayTag CurrentActiveAbilityTag = FGameplayTag::EmptyTag;
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	FGameplayTag WeaponEquipEventTag;
+
+	int32 CurrentActiveSlotIndex = -1;
 };

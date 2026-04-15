@@ -46,6 +46,8 @@ private:
 	float ArcHeightRatio;
 	float TotalLeapDuration;
 	float ElapsedTime;
-	float ArcHeight; 
+	float ArcHeight;
+	
+	float CapsuleHalfHeight; 
 
 };

@@ -23,5 +23,6 @@ void ARPGPlayerState::PushASCToPawn()
 	AGAS_ARPGCharacter* ARPGCharacter = Cast<AGAS_ARPGCharacter>(GetPawn());
 	if (!ARPGCharacter) return;
 
+	ARPGCharacter->SetAbilitySystemComponent(AbilitySystemComponent);
 	ARPGCharacter->InitializePawnASC(this);
 }

@@ -24,6 +24,9 @@ public:
 	                                const FGameplayTagContainer* TargetTags = nullptr,
 	                                OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
 
+	virtual bool CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	                       OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
 protected:
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	                             const FGameplayAbilityActivationInfo ActivationInfo,
@@ -47,9 +50,9 @@ private:
 	void OnMontageCompleted();
 
 	float CalculateLeapDuration() const;
-	bool ConsumeInstantStartup();
 
-	void ApplyLandingDamage(const FVector& LandingLocation);
+	void ApplyLandingDamage(const FVector& LandingLocation) const;
+
 	bool IsTargetAtFullLife(const AActor* Target) const;
 
 	float GetDistanceFalloff(const FVector& LandingLocation, const FVector& TargetLocation) const;
@@ -98,6 +101,15 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float DamageMinimum = 0.4f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement", meta = (ClampMin = "0.1", ClampMax = "1.0"))
+	float MinDurationScale = 0.3f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Movement", meta = (ClampMin = "0.5", ClampMax = "3.0"))
+	float LeapSpeedMultiplier = 1.5f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LeapSlam|Cost")
+	float ManaCost = 10.f;
+	
 	FVector CachedTargetLocation;
 
 	float CachedDuration;

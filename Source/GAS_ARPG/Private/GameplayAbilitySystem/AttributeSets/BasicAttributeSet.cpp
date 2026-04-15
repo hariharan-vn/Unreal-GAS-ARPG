@@ -53,11 +53,19 @@ void UBasicAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallb
 
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
-		SetHealth(GetHealth());
+		if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+		{
+			SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+
+			if (GetHealth() <= 0.f)
+			{
+				OnHealthDepleted();
+			}
+		}
 	}
 	else if (Data.EvaluatedData.Attribute == GetManaAttribute())
 	{
-		SetMana(GetMaxHealth());
+		SetMana(FMath::Clamp(GetMana(), 0.f, GetMaxMana()));
 	}
 }
 

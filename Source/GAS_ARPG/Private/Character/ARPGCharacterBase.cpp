@@ -2,6 +2,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameplayAbilitySystem/AttributeSets/BasicAttributeSet.h"
+#include "GAS_ARPG/GAS_ARPG.h"
 
 AARPGCharacterBase::AARPGCharacterBase()
 {
@@ -24,18 +25,26 @@ AARPGCharacterBase::AARPGCharacterBase()
 
 void AARPGCharacterBase::InitializePawnASC(AActor* ASCOwner)
 {
-	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
 	{
-		ASC->InitAbilityActorInfo(ASCOwner, this);
+		UE_LOG(ARPG_Ability, Warning, TEXT("[%hs] ASC not found"), __FUNCTION__);
+		return;
 	}
+
+	ASC->InitAbilityActorInfo(ASCOwner, this);
 	InitializeAttributes();
 	GiveDefaultAbilities();
 
-	if (UBasicAttributeSet* AttribSet = const_cast<UBasicAttributeSet*>(GetAbilitySystemComponent()->GetSet<
-		UBasicAttributeSet>()))
+	UBasicAttributeSet* AttribSet = const_cast<UBasicAttributeSet*>(
+		ASC->GetSet<UBasicAttributeSet>());
+	if (!AttribSet)
 	{
-		AttribSet->OnDeath.AddUObject(this, &AARPGCharacterBase::HandleDeath);
+		UE_LOG(ARPG_Ability, Warning, TEXT("[%hs] AttributeSet not found"), __FUNCTION__);
+		return;
 	}
+
+	AttribSet->OnDeath.AddUObject(this, &AARPGCharacterBase::HandleDeath);
 }
 
 void AARPGCharacterBase::InitializeAttributes()

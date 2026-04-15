@@ -19,6 +19,8 @@ public:
 
 	virtual void PossessedBy(AController* NewController) override;
 
+	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+	
 protected:
 	virtual void BeginPlay() override;
 

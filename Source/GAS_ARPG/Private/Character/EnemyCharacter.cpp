@@ -30,3 +30,8 @@ void AEnemyCharacter::PossessedBy(AController* NewController)
 
 	InitializePawnASC(this);
 }
+
+UAbilitySystemComponent* AEnemyCharacter::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
+}
