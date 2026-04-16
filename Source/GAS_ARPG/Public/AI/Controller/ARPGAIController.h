@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "CommonEnum/CommonEnums.h"
 #include "ARPGAIController.generated.h"
 
 UCLASS()
@@ -12,14 +13,18 @@ class GAS_ARPG_API AARPGAIController : public AAIController
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this actor's properties
-	AARPGAIController();
+	virtual ETeamAttitude::Type GetTeamAttitudeTowards(const AActor& Other) const override
+	{
+		switch (GetTeamFromActor(&Other))
+		{
+		case ETeam::Player:
+			return ETeamAttitude::Hostile;
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+		case ETeam::Enemy:
+			return ETeamAttitude::Friendly;
 
-public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+		default:
+			return ETeamAttitude::Neutral;
+		}
+	}
 };

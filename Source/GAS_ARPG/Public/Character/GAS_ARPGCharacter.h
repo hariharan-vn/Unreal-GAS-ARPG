@@ -54,6 +54,11 @@ public:
 	AWeaponPickup* GetNearbyWeapon() const;
 
 	virtual void InitializePawnASC(AActor* ASCOwner) override;
+	
+	virtual FGenericTeamId GetGenericTeamId() const override
+	{
+		return FGenericTeamId(static_cast<uint8>(ETeam::Player));
+	}
 
 private:
 	bool CanSwitchAbility() const;

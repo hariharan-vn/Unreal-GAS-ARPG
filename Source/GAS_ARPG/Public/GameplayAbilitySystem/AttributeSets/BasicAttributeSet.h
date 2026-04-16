@@ -102,4 +102,6 @@ public:
 
 private:
 	void OnHealthDepleted() const;
+
+	FGameplayTag DeathTag;
 };

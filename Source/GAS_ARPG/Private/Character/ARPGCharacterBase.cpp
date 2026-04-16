@@ -47,6 +47,12 @@ void AARPGCharacterBase::InitializePawnASC(AActor* ASCOwner)
 	AttribSet->OnDeath.AddUObject(this, &AARPGCharacterBase::HandleDeath);
 }
 
+void AARPGCharacterBase::SetLastHitDirection(const FVector& HitDirection)
+{
+	LastHitDirection = HitDirection;
+}
+
+
 void AARPGCharacterBase::InitializeAttributes()
 {
 	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
@@ -85,10 +91,32 @@ void AARPGCharacterBase::HandleDeath(AActor* DeadActor)
 		PC->DisableInput(PC);
 	}
 
-	// TODO: Play death montage
-	// TODO: Enable ragdoll
-	// TODO: Disable collision
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	UE_LOG(LogTemp, Warning, TEXT("[ARPGCharacterBase] %s HandleDeath"),
-	       *GetName());
+	// Disable movement
+	GetCharacterMovement()->StopMovementImmediately();
+	GetCharacterMovement()->DisableMovement();
+
+	// Enable ragdoll on mesh
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+	GetMesh()->SetAllBodiesSimulatePhysics(true);
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->WakeAllRigidBodies();
+	GetMesh()->bBlendPhysics = true;
+
+	if (LastHitDirection != FVector::ZeroVector)
+	{
+		GetMesh()->AddImpulse(LastHitDirection * DeathForce, NAME_None, true);
+	}
+
+	if (Controller)
+	{
+		Controller->SetIgnoreMoveInput(true);
+		Controller->SetIgnoreLookInput(true);
+	}
+
+	SetLifeSpan(5.f);
+
+	UE_LOG(LogTemp, Warning, TEXT("[%hs] %s Died"), __FUNCTION__, *GetName());
 }

@@ -53,14 +53,10 @@ void UBasicAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallb
 
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
-		if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+		SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
+		if (GetHealth() <= 0.f)
 		{
-			SetHealth(FMath::Clamp(GetHealth(), 0.f, GetMaxHealth()));
-
-			if (GetHealth() <= 0.f)
-			{
-				OnHealthDepleted();
-			}
+			OnHealthDepleted();
 		}
 	}
 	else if (Data.EvaluatedData.Attribute == GetManaAttribute())
@@ -76,16 +72,16 @@ void UBasicAttributeSet::OnHealthDepleted() const
 	if (!ASC) return;
 
 	// Prevent multiple death triggers
-	if (ASC->HasMatchingGameplayTag(FGameplayTag::RequestGameplayTag("State.Dead")))
+	if (ASC->HasMatchingGameplayTag(DeathTag))
 		return;
 
 	UE_LOG(LogTemp, Warning, TEXT("[BasicAttributeSet] %s has died"), *GetOwningActor()->GetName());
 
 	// Apply death tag — AI, animations, abilities all
 	// check this tag to respond to death
-	FGameplayTagContainer DeathTag;
-	DeathTag.AddTag(FGameplayTag::RequestGameplayTag("State.Dead"));
-	ASC->AddLooseGameplayTags(DeathTag);
+	FGameplayTagContainer DeathTagContainer;
+	DeathTagContainer.AddTag(DeathTag);
+	ASC->AddLooseGameplayTags(DeathTagContainer);
 
 	// Broadcast so character class can play death montage
 	// ragdoll, disable input etc

@@ -10,6 +10,7 @@
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "Character/ARPGCharacterBase.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/OverlapResult.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -251,12 +252,31 @@ void ULeapSlamAbility::ApplyLandingDamage(const FVector& LandingLocation) const
 		const float Falloff = GetDistanceFalloff(LandingLocation, Target->GetActorLocation());
 		const float ScaledDamage = -FMath::Lerp(BaseDamageMagnitude * DamageMinimum, BaseDamageMagnitude, Falloff);
 
+		if (AARPGCharacterBase* TargetBase = Cast<AARPGCharacterBase>(Target))
+		{
+			TargetBase->SetLastHitDirection((Target->GetActorLocation() - LandingLocation).GetSafeNormal());
+		}
+
 		const FGameplayEffectSpecHandle DamageSpec = MakeOutgoingGameplayEffectSpec(GE_Damage);
 
-		DamageSpec.Data->SetSetByCallerMagnitude(DamageAmountTag, -100.f); //
+		DamageSpec.Data->SetSetByCallerMagnitude(DamageAmountTag, ScaledDamage); //
+
+
+		UE_LOG(ARPG_Ability, Warning,
+		       TEXT("[%hs] Applying damage to %s — Health before: %.1f"),
+		       __FUNCTION__,
+		       *Target->GetName(),
+		       TargetASC->GetNumericAttribute(UBasicAttributeSet::GetHealthAttribute()));
+
 
 		ApplyGameplayEffectSpecToTarget(CurrentSpecHandle, GetCurrentActorInfo(), CurrentActivationInfo, DamageSpec,
 		                                UAbilitySystemBlueprintLibrary::AbilityTargetDataFromActor(Target));
+
+		// After applying
+		UE_LOG(ARPG_Ability, Warning,
+		       TEXT("[%hs] Health after: %.1f"),
+		       __FUNCTION__,
+		       TargetASC->GetNumericAttribute(UBasicAttributeSet::GetHealthAttribute()));
 
 		// ── Knockback ─────────────────────────
 		if (ACharacter* TargetChar = Cast<ACharacter>(Target))
